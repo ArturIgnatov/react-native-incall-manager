@@ -19,6 +19,7 @@ class InCallManager {
         this.requestRecordPermission = this.requestRecordPermission.bind(this);
         this.checkCameraPermission = this.checkCameraPermission.bind(this);
         this.requestCameraPermission = this.requestCameraPermission.bind(this);
+        this.getAllDevices = this.getAllDevices.bind(this);
         this.checkRecordPermission();
         this.checkCameraPermission();
     }
@@ -145,6 +146,11 @@ class InCallManager {
         // --- on android which api < 23, it will always be "granted"
         let result = await _InCallManager.requestCameraPermission();
         this.cameraPermission = result;
+        return result;
+    }
+
+    async getAllDevices() {
+        let result = await _InCallManager.getAllDevices();
         return result;
     }
 

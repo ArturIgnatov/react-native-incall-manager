@@ -23,6 +23,10 @@ import android.content.IntentFilter;
 import android.content.BroadcastReceiver;
 import android.content.pm.PackageManager;
 import android.Manifest.permission;
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothProfile;
+import android.bluetooth.BluetoothAdapter;
 //import android.media.AudioAttributes; // --- for API 21+
 import android.media.AudioManager;
 import android.media.AudioDeviceInfo;
@@ -63,7 +67,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
-
+import java.util.List;
 import com.zxcpoiu.incallmanager.AppRTC.AppRTCBluetoothManager;
 
 public class InCallManagerModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
@@ -77,6 +81,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
     private PowerManager mPowerManager;
     private WindowManager.LayoutParams lastLayoutParams;
     private WindowManager mWindowManager;
+    private BluetoothManager bluetoothAllManager;
 
     // --- AudioRouteManager
     private AudioManager audioManager;
@@ -200,6 +205,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
         mRequestPermissionCodeTargetPermission = new SparseArray<String>();
         mOnFocusChangeListener = new OnFocusChangeListener();
         bluetoothManager = AppRTCBluetoothManager.create(reactContext, this);
+        bluetoothAllManager = (BluetoothManager) reactContext.getSystemService(Context.BLUETOOTH_SERVICE);
         proximityManager = InCallProximityManager.create(reactContext, this);
         wakeLockUtils = new InCallWakeLockUtils(reactContext);
 
@@ -410,12 +416,12 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
 
     public void onProximitySensorChangedState(boolean isNear) {
         if (automatic && getSelectedAudioDevice() == AudioDevice.EARPIECE) {
-            if (isNear) {
-                turnScreenOff();
-            } else {
-                turnScreenOn();
-            }
-            updateAudioRoute();
+            // if (isNear) {
+            //     turnScreenOff();
+            // } else {
+            //     turnScreenOn();
+            // }
+            // updateAudioRoute();
         }
         WritableMap data = Arguments.createMap();
         data.putBoolean("isNear", isNear);
@@ -581,7 +587,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
             setMicrophoneMute(false);
             forceSpeakerOn = 0;
             hasWiredHeadset = hasWiredHeadset();
-            defaultAudioDevice = (defaultSpeakerOn) ? AudioDevice.SPEAKER_PHONE : (hasEarpiece()) ? AudioDevice.EARPIECE : AudioDevice.SPEAKER_PHONE;
+            defaultAudioDevice = hasWiredHeadset ? AudioDevice.WIRED_HEADSET : AudioDevice.SPEAKER_PHONE;
             userSelectedAudioDevice = AudioDevice.NONE;
             selectedAudioDevice = AudioDevice.NONE;
             audioDevices.clear();
@@ -625,7 +631,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
         startWiredHeadsetEvent();
         startNoisyAudioEvent();
         startMediaButtonEvent();
-        startProximitySensor(); // --- proximity event always enable, but only turn screen off when audio is routing to earpiece.
+        // startProximitySensor(); // --- proximity event always enable, but only turn screen off when audio is routing to earpiece.
         setKeepScreenOn(true);
     }
 
@@ -1467,6 +1473,42 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
     }
 
     @ReactMethod
+    public void getAllDevices(Promise promise) {
+        final AudioDeviceInfo[] devices = audioManager.getDevices(AudioManager.GET_DEVICES_ALL);
+        WritableMap data = Arguments.createMap();
+
+        for (int i = 0; i < devices.length; i++) {
+          int type = devices[i].getType();
+          String name = null;
+          if (type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) {
+            name = "EARPIECE";
+          } else if (type == AudioDeviceInfo.TYPE_WIRED_HEADSET) {
+            name = "TYPE_WIRED_HEADSET";
+          } else if (type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES) {
+            name = "TYPE_WIRED_HEADPHONES";
+          }
+
+          if (name != null) {
+            data.putString("DEVICE" + i, name);
+          }
+        }
+
+        
+        BluetoothAdapter bAdapter = bluetoothAllManager.getAdapter();
+        Set<BluetoothDevice> pairedDevices = bAdapter.getBondedDevices();
+        if (pairedDevices.size() > 0) {
+          int counter = 0;
+          for (BluetoothDevice device : pairedDevices) {
+              String deviceName = device.getName();
+              data.putString("BLUE_DEVICES" + counter, deviceName);
+              counter++;
+          }
+        }
+
+        promise.resolve(data);
+    }
+
+    @ReactMethod
     public void chooseAudioRoute(String audioRoute, Promise promise) {
         Log.d(TAG, "RNInCallManager.chooseAudioRoute(): user choose audioDevice = " + audioRoute);
 
@@ -1478,6 +1520,8 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
             selectAudioDevice(AudioDevice.WIRED_HEADSET);
         } else if (audioRoute.equals(AudioDevice.BLUETOOTH.name())) {
             selectAudioDevice(AudioDevice.BLUETOOTH);
+        } else if (audioRoute.equals(AudioDevice.NONE.name())) {
+            selectAudioDevice(AudioDevice.NONE);
         }
         promise.resolve(getAudioDeviceStatusMap());
     }
@@ -1741,6 +1785,9 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                     return true;
                 } else if (type == AudioDeviceInfo.TYPE_USB_DEVICE) {
                     Log.d(TAG, "hasWiredHeadset: found USB audio device");
+                    return true;
+                } else if (type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES) {
+                    Log.d(TAG, "hasWiredHeadset: found HEADPHONES");
                     return true;
                 }
             }
