@@ -1927,9 +1927,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
     private AudioDevice getPreferredAudioDevice(boolean skipBluetooth) {
         final AudioDevice newAudioDevice;
 
-        if (userSelectedAudioDevice != null && userSelectedAudioDevice != AudioDevice.NONE) {
-            newAudioDevice = userSelectedAudioDevice;
-        } else if (!skipBluetooth && audioDevices.contains(AudioDevice.BLUETOOTH)) {
+        if (!skipBluetooth && audioDevices.contains(AudioDevice.BLUETOOTH)) {
             // If a Bluetooth is connected, then it should be used as output audio
             // device. Note that it is not sufficient that a headset is available;
             // an active SCO channel must also be up and running.
