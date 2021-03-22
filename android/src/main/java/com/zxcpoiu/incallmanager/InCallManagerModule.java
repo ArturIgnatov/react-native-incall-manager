@@ -150,14 +150,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
     // This device is changed automatically using a certain scheme where e.g.
     // a wired headset "wins" over speaker phone. It is also possible for a
     // user to explicitly select a device (and overrid any predefined scheme).
-    // See |userSelectedAudioDevice| for details.
     private AudioDevice selectedAudioDevice;
-
-    // Contains the user-selected audio device which overrides the predefined
-    // selection scheme.
-    // TODO(henrika): always set to AudioDevice.NONE today. Add support for
-    // explicit selection based on choice by userSelectedAudioDevice.
-    private AudioDevice userSelectedAudioDevice;
 
     // Contains speakerphone setting: auto, true or false
     private final String useSpeakerphone = SPEAKERPHONE_AUTO;
@@ -588,7 +581,6 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
             forceSpeakerOn = 0;
             hasWiredHeadset = hasWiredHeadset();
             defaultAudioDevice = hasWiredHeadset ? AudioDevice.WIRED_HEADSET : AudioDevice.SPEAKER_PHONE;
-            userSelectedAudioDevice = AudioDevice.NONE;
             selectedAudioDevice = AudioDevice.NONE;
             audioDevices.clear();
             updateAudioRoute();
@@ -1705,7 +1697,6 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
             Log.e(TAG, "selectAudioDevice() Can not select " + device + " from available " + audioDevices);
             return;
         }
-        userSelectedAudioDevice = device;
         updateAudioDeviceState();
     }
 
@@ -1805,8 +1796,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                         + "BT state=" + bluetoothManager.getState());
         Log.d(TAG, "Device status: "
                         + "available=" + audioDevices + ", "
-                        + "selected=" + selectedAudioDevice + ", "
-                        + "user selected=" + userSelectedAudioDevice);
+                        + "selected=" + selectedAudioDevice);
 
         // Check if any Bluetooth headset is connected. The internal BT state will
         // change accordingly.
@@ -1837,13 +1827,6 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
             newAudioDevices.add(AudioDevice.EARPIECE);
         }
 
-        // --- check whether user selected audio device is available
-        if (userSelectedAudioDevice != null
-                && userSelectedAudioDevice != AudioDevice.NONE
-                && !newAudioDevices.contains(userSelectedAudioDevice)) {
-            userSelectedAudioDevice = AudioDevice.NONE;
-        }
-
         // Store state which is set to true if the device list has changed.
         boolean audioDeviceSetUpdated = !audioDevices.equals(newAudioDevices);
         // Update the existing audio device set.
@@ -1870,9 +1853,6 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
                 // Remove BLUETOOTH from list of available devices since SCO failed.
                 audioDevices.remove(AudioDevice.BLUETOOTH);
                 audioDeviceSetUpdated = true;
-                if (userSelectedAudioDevice == AudioDevice.BLUETOOTH) {
-                    userSelectedAudioDevice = AudioDevice.NONE;
-                }
                 newAudioDevice = getPreferredAudioDevice();
             }
         }
@@ -1927,9 +1907,7 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
     private AudioDevice getPreferredAudioDevice(boolean skipBluetooth) {
         final AudioDevice newAudioDevice;
 
-        if (userSelectedAudioDevice != null && userSelectedAudioDevice != AudioDevice.NONE) {
-            newAudioDevice = userSelectedAudioDevice;
-        } else if (!skipBluetooth && audioDevices.contains(AudioDevice.BLUETOOTH)) {
+        if (!skipBluetooth && audioDevices.contains(AudioDevice.BLUETOOTH)) {
             // If a Bluetooth is connected, then it should be used as output audio
             // device. Note that it is not sufficient that a headset is available;
             // an active SCO channel must also be up and running.
