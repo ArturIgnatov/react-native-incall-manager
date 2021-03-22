@@ -1936,6 +1936,8 @@ public class InCallManagerModule extends ReactContextBaseJavaModule implements L
             // If a wired headset is connected, but Bluetooth is not, then wired headset is used as
             // audio device.
             newAudioDevice = AudioDevice.WIRED_HEADSET;
+        } else if (userSelectedAudioDevice != null && userSelectedAudioDevice != AudioDevice.NONE) {
+            newAudioDevice = userSelectedAudioDevice;
         } else if (audioDevices.contains(defaultAudioDevice)) {
             newAudioDevice = defaultAudioDevice;
         } else {
